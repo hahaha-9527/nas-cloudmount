@@ -1,0 +1,79 @@
+services:
+  app:
+    image: rclone/rclone:1.75.1
+    labels:
+      - "com.docker.compose.project.source=appstore"
+    container_name: cloudmount-app
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/opt/app/run.sh"]
+    devices:
+      - /dev/fuse:/dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    stop_grace_period: 30s
+    healthcheck:
+      # 判据只认 /proc/mounts：死挂载点上 stat / mountpoint / [ -e ] 全都会返回
+      # 「不是挂载点」，而那恰恰是最该报警的状态。有了它 docker ps 会显示
+      # (unhealthy)，不必再去猜「容器 Up 但目录打不开」是怎么回事。
+      test: ["CMD-SHELL", "grep -q fuse.rclone /proc/mounts"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    volumes:
+      # 共享挂载：只共享「挂载点所在的那棵子树」，:rshared 让容器里挂的 FUSE
+      # 传播回宿主机，成为宿主上的真实目录。v1.1.1 起默认收窄到 /volume1/data
+      # （老版本共享整个 /volume1，容器因此能读到 AList 的凭据库等无关数据）。
+      # SHARE_ROOT 可覆盖；留空时的默认值与下面那行保持一致。
+{{- if .SHARE_ROOT }}
+      - "{{ .SHARE_ROOT }}:{{ .SHARE_ROOT }}:rshared"
+{{- else }}
+      - /volume1/data:/volume1/data:rshared
+{{- end }}
+      # 读缓存单独挂一条普通绑定，容器内落在 /cmcache。
+      # 🚨 容器内目标**必须与宿主路径不同**。v1.1.1/1.1.2 写的是同路径（源 == 目标），
+      #    这种自绑定会在**宿主命名空间**里泄露一个与存储池同设备（/dev/dm-*）的
+      #    重复挂载点 —— 后果不是"多个挂载"这么轻：铁牛的存储识别会把该存储池的
+      #    MountPoint 认成这个缓存目录，文件管理器「我的文件」根列表随即变空
+      #    （接口 /filemanage/file?path=/ 返回空数组），看起来像"文件夹全丢了"，
+      #    而数据其实一个没少。实测：把目标改成 /cmcache 后，宿主挂载表只剩
+      #    /volume1 与本应用的 FUSE 挂载点各一条，根列表立刻恢复。
+      #    升级前已中招的机器由 cmd/install.sh 与 cmd/start.sh 里的
+      #    purge_stray_cache_mount() 自动清理。
+      - /volume1/data/cloudmount:/cmcache
+      - ./app:/opt/app:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    environment:
+      - TZ=Asia/Shanghai
+{{- if .MOUNT_DIR }}
+      # 挂载目录：安装时填写（留空 = /volume1/data/网盘）
+      - "MOUNT_DIR={{ .MOUNT_DIR }}"
+{{- end }}
+{{- if .MOUNT_UID }}
+      # 挂载文件属主 UID：安装时填写（留空 = 0，root）
+      - "MOUNT_UID={{ .MOUNT_UID }}"
+{{- end }}
+{{- if .MOUNT_GID }}
+      # 挂载文件属主 GID：安装时填写（留空 = 0，root）
+      - "MOUNT_GID={{ .MOUNT_GID }}"
+{{- end }}
+      # 读缓存的容器内路径。宿主的 /volume1/data/cloudmount 绑定到容器内 /cmcache，
+      # 这里指到它的 cache 子目录（与老版本的缓存布局一致，升级后已缓存的文件不用重下）。
+      - "CACHE_DIR=/cmcache/cache"
+{{- if .WEBDAV_URL }}
+      # WebDAV 地址：安装时填写（留空 = 本机 AList 的 http://host.docker.internal:5244/dav）
+      - "WEBDAV_URL={{ .WEBDAV_URL }}"
+{{- end }}
+{{- if .WEBDAV_USER }}
+      # WebDAV 账号：安装时填写（留空 = admin）
+      - "WEBDAV_USER={{ .WEBDAV_USER }}"
+{{- end }}
+{{- if .WEBDAV_PASSWORD }}
+      # WebDAV 口令：安装时填写（留空 = admin；在 AList 改过口令就必须填这里）
+      - "WEBDAV_PASSWORD={{ .WEBDAV_PASSWORD }}"
+{{- end }}

@@ -1,0 +1,230 @@
+{
+	"appId": "com.centerm.docker.cloudmount",
+	"serviceName": "cloudmount",
+	"version": {
+		"lowVersion": "1.0.0",
+		"version": "1.1.5"
+	},
+	"languageList": [
+		"zh-CN",
+		"en-US"
+	],
+	"i18n": [
+		{
+			"name": "网盘挂载",
+			"description": "把 AList 里的网盘变成 NAS 上的真实目录：AList 挂的 115、阿里云盘、百度网盘等只在它自己的虚拟目录里，别的程序看不见；本应用用 rclone 把 AList 的 WebDAV 桥接成 FUSE 挂载，网盘内容就以普通文件夹出现，文件管理器、刮削器和其它容器都能直接读取、播放、改名。\n用法：先在 AList 后台（http://NAS地址:5244/@manage，默认 admin / admin）加好网盘并确认能列出文件，再装本应用，并保持 AList 运行；之后在 AList 增删网盘会自动跟着变。\n挂载位置：安装时填「挂载目录」，留空为 /volume1/data/网盘；想让文件管理器「我的文件」里看到，填 /volume1/data/personal/<用户ID>/网盘——必须是真挂载点，不认符号链接。\n配置入口：应用中心详情页点「打开」就是本配置页，挂载目录、文件属主、AList 地址与口令都能改，保存即重新挂载，不用卸载重装。首次打开需自行设置访问口令。",
+			"author": "西了个瓜",
+			"langName": "zh-CN",
+			"versionContent": "内置配置页上线，界面统一为与风扇调速、灯控中心一致的风格。①详情页点「打开」即是配置页：挂载目录、文件属主、AList 地址与口令都能改，保存后自动重新挂载，不用卸载重装；②配置存在 /volume1/data/cloudmount/cloudmount.conf，覆盖安装不会冲掉；③配置页带访问口令（首次打开自行设置），支持深/浅色切换，页脚署名。"
+		},
+		{
+			"name": "CloudMount",
+			"description": "Turns the netdisks inside AList into real folders on your NAS: storages added in AList (115, Aliyun Drive, Baidu Netdisk, ...) exist only in its virtual directory and are invisible to other apps; CloudMount bridges AList's WebDAV into a FUSE mount, so they appear as ordinary folders that the file manager, scrapers and other containers can read, stream and rename.\nUsage: add your storages in the AList panel (http://NAS_IP:5244/@manage, default admin / admin), make sure files are listed, then install this app and keep AList running. Later changes in AList are picked up automatically.\nMount location: set the mount directory at install time, blank = /volume1/data/网盘. To show up in the file manager's personal space use /volume1/data/personal/<user-id>/网盘 - it must be a real mount point, symbolic links are not supported.\nSettings: the Open button on the app center detail page leads to this page, where the mount directory, file ownership and AList credentials can be changed and remounted on save, with no reinstall. An access password is set on first open.",
+			"author": "西了个瓜",
+			"langName": "en-US",
+			"versionContent": "Adds a built-in settings page and unifies the UI with FanCtrl / LED Center. (1) The Open button on the app center detail page leads to it: mount directory, file ownership and AList credentials can be changed and remounted on save, with no reinstall. (2) Settings live in /volume1/data/cloudmount/cloudmount.conf and survive app-center upgrades. (3) The page is password protected (set on first open) and supports dark / light themes."
+		}
+	],
+	"installParameters": {
+		"list": [
+			{
+				"key": "MOUNT_DIR",
+				"paramType": 0,
+				"maxLength": 0,
+				"miniLength": 0,
+				"isRequired": false,
+				"maxValuesCount": 1,
+				"verifyRegular": "",
+				"i18ns": [
+					{
+						"name": "挂载目录（留空 = /volume1/data/网盘）",
+						"description": "网盘内容在 NAS 上出现的位置，必须是绝对路径。留空用默认值 /volume1/data/网盘。想让铁牛文件管理器「我的文件」里直接看到，填 /volume1/data/personal/<用户ID>/网盘（用户 ID 可用 id -u <用户名> 查）。⚠️ 该目录会被本应用接管为挂载点，请填一个专用的空目录，不要指向已有数据的目录。",
+						"inputNotice": "留空即使用 /volume1/data/网盘",
+						"langName": "zh-CN"
+					},
+					{
+						"name": "Mount directory (blank = /volume1/data/网盘)",
+						"description": "Absolute path where the netdisks will appear on the NAS. Leave empty for /volume1/data/网盘. Use /volume1/data/personal/<user-id>/网盘 to make it visible in the built-in file manager's personal space (get yours with id -u <username>). The path is taken over as a mount point, so point it at a dedicated empty directory.",
+						"inputNotice": "Leave empty to use /volume1/data/网盘",
+						"langName": "en-US"
+					}
+				]
+			},
+			{
+				"key": "SHARE_ROOT",
+				"paramType": 0,
+				"maxLength": 0,
+				"miniLength": 0,
+				"isRequired": false,
+				"maxValuesCount": 1,
+				"verifyRegular": "",
+				"i18ns": [
+					{
+						"name": "共享给容器的宿主目录（留空 = /volume1/data）",
+						"description": "本应用要把容器里的 FUSE 挂载传播回宿主机，所以必须共享「挂载目录所在的那棵子树」。**这里填的目录就是容器的可见边界，填得越窄越安全。**正确做法是填「挂载目录的上一级」——挂载目录若是 /volume1/data/personal/<用户ID>/网盘，就填 /volume1/data/personal/<用户ID>，这样容器里只剩你的个人空间，看不到 AList 的凭据库（/volume1/data/alist/data.db 里存着你的网盘登录凭据）、看不到别的应用数据。留空会用 /volume1/data（= 默认挂载目录 /volume1/data/网盘 的上一级），但那棵子树里包含 alist/，等于没挡住。读缓存不在这棵树里，已单独挂载，无需你操心。",
+						"inputNotice": "留空即使用 /volume1/data",
+						"langName": "zh-CN"
+					},
+					{
+						"name": "Host directory shared into the container (blank = /volume1/data)",
+						"description": "The container needs a shared mount of the directory tree containing the mount point so the FUSE mount can propagate back to the host. This directory IS the container's visibility boundary - narrower is safer. The right value is the PARENT of your mount directory: with the mount at /volume1/data/personal/<user-id>/网盘, use /volume1/data/personal/<user-id> so the container only sees your personal space and cannot reach the AList credential database (/volume1/data/alist/data.db holds your netdisk login cookies) or other apps' data. Leaving it empty uses /volume1/data (the parent of the default mount point), but that subtree contains alist/, so it does not actually block anything. The read cache lives outside this tree and is mounted separately.",
+						"inputNotice": "Leave empty to use /volume1/data",
+						"langName": "en-US"
+					}
+				]
+			},
+			{
+				"key": "MOUNT_UID",
+				"paramType": 0,
+				"maxLength": 0,
+				"miniLength": 0,
+				"isRequired": false,
+				"maxValuesCount": 1,
+				"verifyRegular": "",
+				"i18ns": [
+					{
+						"name": "挂载文件属主 UID（留空 = 0，即 root）",
+						"description": "网盘里显示出来的文件和文件夹，用哪个用户 ID 作为属主。留空是 0（root），这样文件在宿主机上是 root 私有的，一旦开启 SMB 共享，Windows 侧会把这些文件当成只读 —— 改名、编辑、删除都会失败。想让它们跟你的个人空间一致，就填你用户的 UID（在 NAS 上执行 id -u <用户名> 查）。",
+						"inputNotice": "留空即使用 0（root）",
+						"langName": "zh-CN"
+					},
+					{
+						"name": "Owner UID of mounted files (blank = 0, i.e. root)",
+						"description": "The user id that files and folders from the netdisk are reported as. Blank means 0 (root), which makes them private root-owned files on the host - over an SMB share Windows then treats them as read-only and renaming, editing or deleting fails. Set your own UID to match your personal space (run id -u <username> to check).",
+						"inputNotice": "Leave empty to use 0 (root)",
+						"langName": "en-US"
+					}
+				]
+			},
+			{
+				"key": "MOUNT_GID",
+				"paramType": 0,
+				"maxLength": 0,
+				"miniLength": 0,
+				"isRequired": false,
+				"maxValuesCount": 1,
+				"verifyRegular": "",
+				"i18ns": [
+					{
+						"name": "挂载文件属主 GID（留空 = 0，即 root）",
+						"description": "同上，这是组 ID。在 NAS 上执行 id -g <用户名> 查。与「挂载文件属主 UID」配套填写。",
+						"inputNotice": "留空即使用 0（root）",
+						"langName": "zh-CN"
+					},
+					{
+						"name": "Owner GID of mounted files (blank = 0, i.e. root)",
+						"description": "Same as above but the group id. Run id -g <username> to check. Fill this together with the owner UID.",
+						"inputNotice": "Leave empty to use 0 (root)",
+						"langName": "en-US"
+					}
+				]
+			},
+			{
+				"key": "WEBDAV_URL",
+				"paramType": 0,
+				"maxLength": 0,
+				"miniLength": 0,
+				"isRequired": false,
+				"maxValuesCount": 1,
+				"verifyRegular": "",
+				"i18ns": [
+					{
+						"name": "WebDAV 地址（留空 = 本机 AList）",
+						"description": "要挂载的 WebDAV 端点完整地址，默认 http://host.docker.internal:5244/dav，指向本机 AList。也可以填别的 WebDAV 服务器（如另一台 NAS 或网盘提供的 WebDAV）。",
+						"inputNotice": "留空即使用 http://host.docker.internal:5244/dav",
+						"langName": "zh-CN"
+					},
+					{
+						"name": "WebDAV URL (blank = local AList)",
+						"description": "Full address of the WebDAV endpoint to mount. Defaults to http://host.docker.internal:5244/dav (the local AList). Any other WebDAV server works too.",
+						"inputNotice": "Leave empty to use http://host.docker.internal:5244/dav",
+						"langName": "en-US"
+					}
+				]
+			},
+			{
+				"key": "WEBDAV_USER",
+				"paramType": 0,
+				"maxLength": 0,
+				"miniLength": 0,
+				"isRequired": false,
+				"maxValuesCount": 1,
+				"verifyRegular": "",
+				"i18ns": [
+					{
+						"name": "WebDAV 账号（留空 = admin）",
+						"description": "WebDAV 登录账号，默认 admin，即 AList 的管理员账号名。",
+						"inputNotice": "留空即使用 admin",
+						"langName": "zh-CN"
+					},
+					{
+						"name": "WebDAV user (blank = admin)",
+						"description": "WebDAV login name, defaults to admin (the AList admin account name).",
+						"inputNotice": "Leave empty to use admin",
+						"langName": "en-US"
+					}
+				]
+			},
+			{
+				"key": "WEBDAV_PASSWORD",
+				"paramType": 2,
+				"maxLength": 0,
+				"miniLength": 0,
+				"isRequired": false,
+				"maxValuesCount": 1,
+				"verifyRegular": "",
+				"i18ns": [
+					{
+						"name": "WebDAV 口令（留空 = admin）",
+						"description": "WebDAV 登录口令，默认 admin。**如果你已在 AList 后台改过管理员口令，这里必须填成新的**，否则挂载会一直空着。改完口令后重新安装本应用即可生效。口令请勿包含英文双引号（会破坏生成的编排文件）。",
+						"inputNotice": "留空即使用默认口令 admin",
+						"langName": "zh-CN"
+					},
+					{
+						"name": "WebDAV password (blank = admin)",
+						"description": "WebDAV login password, defaults to admin. If you changed the AList admin password in the panel, you must put the new one here, otherwise the mount stays empty. Reinstall the app after changing the password.",
+						"inputNotice": "Leave empty to use the default password admin",
+						"langName": "en-US"
+					}
+				]
+			},
+			{
+				"key": "PANEL_PASSWORD",
+				"paramType": 2,
+				"maxLength": 0,
+				"miniLength": 0,
+				"isRequired": false,
+				"maxValuesCount": 1,
+				"verifyRegular": "",
+				"i18ns": [
+					{
+						"name": "配置页访问口令（留空 = 首次打开页面时自己设）",
+						"description": "应用中心详情页点「打开」进入的配置页需要这个口令才能访问。配置页能改挂载目录、重启挂载容器，所以必须设防。留空则由第一个打开页面的人自行设置（不需要 root 权限）；这里填了就是初始口令，之后可以在页面上改。忘了口令的兜底：删除 /volume1/data/cloudmount/.panel-auth.json 后重启应用。",
+						"inputNotice": "至少 6 位，留空即可",
+						"langName": "zh-CN"
+					},
+					{
+						"name": "Settings page password (blank = set on first open)",
+						"description": "Required to open the in-app settings page (app center detail page -> Open). That page can change the mount directory and restart the mount container, so it must be protected. Left empty, the first visitor sets it (no root needed); if you enter one here it becomes the initial password and can be changed on the page later. Forgotten it? Delete /volume1/data/cloudmount/.panel-auth.json and restart the app.",
+						"inputNotice": "6+ characters, optional",
+						"langName": "en-US"
+					}
+				]
+			}
+		]
+	},
+	"accessCtrl": {
+		"urlAppAccesses": [
+			{
+				"httpsEnable": false,
+				"httpsPort": "",
+				"port": "8791",
+				"urlPath": "/"
+			}
+		],
+		"supports": [
+			"pc",
+			"app"
+		]
+	}
+}

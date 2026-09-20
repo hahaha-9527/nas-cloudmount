@@ -1,0 +1,73 @@
+# CloudMount — Docker Compose 部署（不用应用中心时用这一份）
+#
+#   cp .env.example .env && vi .env
+#   sudo mount --make-rshared /          # 关键：不做这一步 FUSE 挂载传播不回宿主机
+#   docker compose up -d
+#   sudo python3 tools/verify.py
+#
+# 与应用中心那份 docker-compose.tmpl 的区别：模板里的 {{ .参数 }} 由安装参数填入，
+# 这里改成读 .env —— 不复制 .env 也能跑，全部走下面的默认值。
+services:
+  app:
+    # 国内直连 Docker Hub 多数会超时。拉不动时改用加速源，例如：
+    #   docker.1ms.run/rclone/rclone:1.75.1
+    #   docker.m.daocloud.io/rclone/rclone:1.75.1
+    image: rclone/rclone:1.75.1
+    container_name: cloudmount-app
+    restart: unless-stopped
+    # 覆盖镜像默认 entrypoint：镜像里没有 bash，这份脚本必须保持 POSIX sh 语法
+    entrypoint: ["/bin/sh", "/opt/app/run.sh"]
+    devices:
+      - /dev/fuse:/dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      # 不加这行 mount() 会直接报 Permission denied
+      - apparmor:unconfined
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    stop_grace_period: 30s
+    healthcheck:
+      # 判据只认 /proc/mounts：死挂载点上 stat / mountpoint / [ -e ] 全都会返回
+      # 「不是挂载点」，而那恰恰是最该报警的状态。有了它 docker ps 会显示
+      # (unhealthy)，不必再去猜「容器 Up 但目录打不开」是怎么回事。
+      test: ["CMD-SHELL", "grep -q fuse.rclone /proc/mounts"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    volumes:
+      # 共享挂载：只共享「挂载点所在的那棵子树」，:rshared 让容器里挂的 FUSE
+      # 传播回宿主机，成为宿主上的真实目录。
+      # ⚠️ 这里填的目录就是容器的可见边界，填得越窄越安全 —— 推荐填
+      #    「挂载目录的上一级」，例如 /volume1/data/personal/<你的用户ID>。
+      #    默认的 /volume1/data 那棵子树里包含 alist/（凭据库），等于没挡住。
+      # ⚠️ 宿主上还要 `mount --make-rshared /`，否则 rshared 传播不出去。
+      - ${SHARE_ROOT:-/volume1/data}:${SHARE_ROOT:-/volume1/data}:rshared
+      # 读缓存单独挂一条普通绑定，容器内落在 /cmcache。
+      # 🚨 容器内目标**必须与宿主路径不同**。v1.1.1/1.1.2 写的是同路径（源 == 目标），
+      #    这种自绑定会在**宿主命名空间**里泄露一个与存储池同设备（/dev/dm-*）的
+      #    重复挂载点 —— 后果不是"多个挂载"这么轻：铁牛的存储识别会把该存储池的
+      #    MountPoint 认成这个缓存目录，文件管理器「我的文件」根列表随即变空
+      #    （接口 /filemanage/file?path=/ 返回空数组），看起来像"文件夹全丢了"，
+      #    而数据其实一个没少。改到 /cmcache 就正常了。
+      - ${CACHE_HOST_DIR:-/volume1/data/cloudmount}:/cmcache
+      - ./app:/opt/app:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    environment:
+      - TZ=Asia/Shanghai
+      # 挂载目录：网盘在 NAS 上出现的位置
+      - "MOUNT_DIR=${MOUNT_DIR:-/volume1/data/网盘}"
+      # 读缓存的容器内路径（与上面那条绑定配套，改要一起改）
+      - "CACHE_DIR=/cmcache/cache"
+      - "VFS_CACHE_MAX_SIZE=${VFS_CACHE_MAX_SIZE:-20G}"
+      - "VFS_CACHE_MODE=${VFS_CACHE_MODE:-full}"
+      # 挂载文件属主：留空是 0（root），开 SMB 后 Windows 侧会当只读
+      - "MOUNT_UID=${MOUNT_UID:-0}"
+      - "MOUNT_GID=${MOUNT_GID:-0}"
+      # WebDAV 上游，默认本机 AList
+      - "WEBDAV_URL=${WEBDAV_URL:-http://host.docker.internal:5244/dav}"
+      - "WEBDAV_USER=${WEBDAV_USER:-admin}"
+      # 在 AList 改过口令就必须填这里，否则挂载会一直空着
+      - "WEBDAV_PASSWORD=${WEBDAV_PASSWORD:-admin}"
