@@ -229,6 +229,16 @@ sudo python3 tools/verify.py --mount-dir /volume1/data/personal/<你的用户ID>
 5. 缓存目录可写且不在容器层
 6. 配置页在监听（默认 8791），并区分「待设置口令 / 待登录 / 正常」三种状态
 
+## 相关项目
+
+同系列工具，都在 Centerm Zero 1 Pro（铁牛OS）上实机跑通 —— 纯 Python 标准库、单容器、MIT：
+
+| 项目 | 用途 |
+| --- | --- |
+| [nas-appinstall](https://github.com/hahaha-9527/nas-appinstall) | 网页版 `.tpk` 上传口子：把本地应用包注册进应用中心并完成安装 / 升级 |
+| [nas-tieniuled](https://github.com/hahaha-9527/nas-tieniuled) | 机箱电源灯 / 硬盘灯的可视化控制台 |
+| [nas-fanctl](https://github.com/hahaha-9527/nas-fanctl) | 风扇温度调速：按 CPU 与硬盘温度自动调节转速 |
+
 ## 版本记录
 
 见 [CHANGELOG.md](CHANGELOG.md)。
