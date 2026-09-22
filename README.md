@@ -238,6 +238,7 @@ sudo python3 tools/verify.py --mount-dir /volume1/data/personal/<你的用户ID>
 | [nas-appinstall](https://github.com/hahaha-9527/nas-appinstall) | 网页版 `.tpk` 上传口子：把本地应用包注册进应用中心并完成安装 / 升级 |
 | [nas-tieniuled](https://github.com/hahaha-9527/nas-tieniuled) | 机箱电源灯 / 硬盘灯的可视化控制台 |
 | [nas-fanctl](https://github.com/hahaha-9527/nas-fanctl) | 风扇温度调速：按 CPU 与硬盘温度自动调节转速 |
+| [nas-upsmgr](https://github.com/hahaha-9527/nas-upsmgr) | UPS 电源管理：市电 / 电量监控，断电自动安全关机 |
 
 ## 版本记录
 
